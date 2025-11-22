@@ -15,6 +15,8 @@ class FoodApplication(models.Model):
     seeker = models.ForeignKey(User, on_delete=models.CASCADE, related_name='applications')
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     message = models.TextField(blank=True)
+    beneficiaries_count = models.IntegerField(default=0)
+    preferred_pickup_time = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

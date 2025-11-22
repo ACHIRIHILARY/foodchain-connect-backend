@@ -51,3 +51,17 @@ class FoodApplicationViewSet(viewsets.ModelViewSet):
             application.save()
             return Response({'status': f'Application {status}'})
         return Response({'error': 'Invalid status'}, status=400)
+
+    @action(detail=True, methods=['post'])
+    def confirm_pickup(self, request, pk=None):
+        application = self.get_object()
+        if request.user != application.seeker:
+             return Response({'error': 'Not authorized'}, status=403)
+        
+        if application.status == FoodApplication.Status.APPROVED:
+            application.status = FoodApplication.Status.COLLECTED
+            application.save()
+            # Update listing status as well? Maybe not if quantity remains.
+            # For simplicity, let's assume 1 application = 1 listing fully collected for now, or handle partials later.
+            return Response({'status': 'Pickup confirmed'})
+        return Response({'error': 'Application must be APPROVED to confirm pickup'}, status=400)

@@ -32,7 +32,18 @@ class FoodListingViewSet(viewsets.ModelViewSet):
         # Providers see their own, Seekers see available
         if user.is_authenticated and user.role == User.Role.PROVIDER:
             return FoodListing.objects.filter(provider=user)
-        return FoodListing.objects.filter(status=FoodListing.Status.AVAILABLE)
+        queryset = FoodListing.objects.filter(status=FoodListing.Status.AVAILABLE)
+        
+        # Filtering
+        category = self.request.query_params.get('category')
+        pickup_location = self.request.query_params.get('pickup_location')
+        
+        if category:
+            queryset = queryset.filter(category=category)
+        if pickup_location:
+            queryset = queryset.filter(pickup_location__icontains=pickup_location)
+            
+        return queryset
 
     def perform_create(self, serializer):
         if self.request.user.role != User.Role.PROVIDER and not self.request.user.is_staff:
@@ -45,3 +56,22 @@ class FoodListingViewSet(viewsets.ModelViewSet):
         listing.status = FoodListing.Status.AVAILABLE
         listing.save()
         return Response({'status': 'listing approved'})
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def analytics(self, request):
+        user = request.user
+        if user.role != User.Role.PROVIDER:
+            return Response({'error': 'Only Providers can view analytics'}, status=403)
+        
+        listings = FoodListing.objects.filter(provider=user)
+        total_listings = listings.count()
+        active_listings = listings.filter(status=FoodListing.Status.AVAILABLE).count()
+        
+        # Simple analytics
+        return Response({
+            'total_listings': total_listings,
+            'active_listings': active_listings,
+            'total_meals_donated': 0, # Placeholder, would need to parse quantity or add a numeric field
+            'impact_score': total_listings * 10 # Placeholder metric
+        })
+

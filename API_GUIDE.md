@@ -12,7 +12,7 @@ The API uses JWT (JSON Web Token) for authentication.
 
 ## Endpoints
 
-### 1. User Registration
+### 1. User Registration & Profile
 
 Create a new user account.
 
@@ -29,112 +29,25 @@ Create a new user account.
   "password": "securepassword123",
   "role": "SEEKER",  // Options: "SEEKER", "PROVIDER" (ADMIN is restricted)
   "phone_number": "1234567890", // Optional
-  "address": "123 Green St, City" // Optional
+  "address": "123 Green St, City", // Optional
+  "organization_name": "Food Bank", // Optional (Provider/Seeker)
+  "verification_document": "(file upload)" // Optional
 }
 ```
-
-**Success Response (201 Created):**
-
-```json
-{
-  "username": "johndoe",
-  "email": "john@example.com",
-  "role": "SEEKER",
-  "phone_number": "1234567890",
-  "address": "123 Green St, City"
-}
-```
-
----
-
-### 2. Login (Obtain Token)
-
-Authenticate a user and receive access and refresh tokens.
-
-- **URL**: `/users/login/`
-- **Method**: `POST`
-- **Auth Required**: No
-
-**Request Body (JSON):**
-
-```json
-{
-  "username": "johndoe",
-  "password": "securepassword123"
-}
-```
-
-**Success Response (200 OK):**
-
-```json
-{
-  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-  "access": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
-}
-```
-
----
-
-### 3. Refresh Token
-
-Get a new access token using a valid refresh token.
-
-- **URL**: `/users/token/refresh/`
-- **Method**: `POST`
-- **Auth Required**: No
-
-**Request Body (JSON):**
-
-```json
-{
-  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
-}
-```
-
----
-
-### 4. Get Current User Profile
-
-Retrieve details of the currently logged-in user.
 
 - **URL**: `/users/me/`
-- **Method**: `GET`
+- **Method**: `GET`, `PUT`, `PATCH`
 - **Auth Required**: Yes
 
 ---
 
-### 5. Admin User Management (Super Admin Only)
-
-Manage all users in the system.
-
-- **URL**: `/users/admin/users/`
-- **Method**: `GET` (List), `POST` (Create)
-- **Auth Required**: Yes (Admin)
-
-- **URL**: `/users/admin/users/{id}/`
-- **Method**: `GET`, `PUT`, `PATCH`, `DELETE`
-- **Auth Required**: Yes (Admin)
-
-**Create Admin User Payload:**
-
-```json
-{
-  "username": "adminuser",
-  "email": "admin@example.com",
-  "password": "password",
-  "role": "ADMIN"
-}
-```
-
----
-
-### 6. Food Listings
+### 2. Food Listings
 
 Manage food donations.
 
 - **URL**: `/listings/`
 - **Method**: `GET`
-    - **Seekers**: View all `AVAILABLE` listings.
+    - **Seekers**: View all `AVAILABLE` listings. Filter by `category`, `pickup_location`.
     - **Providers**: View their own listings.
     - **Admins**: View all listings.
 - **Method**: `POST` (Providers only)
@@ -147,6 +60,9 @@ Manage food donations.
   "description": "10 loaves of bread",
   "quantity": "10",
   "expiry_date": "2023-12-31T23:59:59Z",
+  "category": "PACKAGED", // COOKED, PACKAGED, FRESH, OTHER
+  "pickup_location": "123 Baker St",
+  "pickup_time_window": "9AM - 5PM",
   "image": "(file upload)" // Optional
 }
 ```
@@ -154,13 +70,13 @@ Manage food donations.
 - **URL**: `/listings/{id}/`
 - **Method**: `GET`, `PUT`, `PATCH`, `DELETE` (Provider/Admin)
 
-- **URL**: `/listings/{id}/approve/`
-- **Method**: `POST` (Admin only)
-    - Approves a listing and sets status to `AVAILABLE`.
+- **URL**: `/listings/analytics/`
+- **Method**: `GET` (Provider only)
+    - Returns stats: `total_listings`, `active_listings`, `impact_score`.
 
 ---
 
-### 7. Food Applications
+### 3. Food Applications
 
 Manage requests for food.
 
@@ -176,7 +92,9 @@ Manage requests for food.
 ```json
 {
   "listing": 1, // ID of the listing
-  "message": "We need this for our shelter."
+  "message": "We need this for our shelter.",
+  "beneficiaries_count": 50,
+  "preferred_pickup_time": "2023-12-30T10:00:00Z"
 }
 ```
 
@@ -187,13 +105,44 @@ Manage requests for food.
 
 ```json
 {
-  "status": "APPROVED" // Options: "APPROVED", "REJECTED", "COLLECTED"
+  "status": "APPROVED" // Options: "APPROVED", "REJECTED"
+}
+```
+
+- **URL**: `/applications/{id}/confirm_pickup/`
+- **Method**: `POST` (Seeker only)
+    - Confirms pickup for an `APPROVED` application. Sets status to `COLLECTED`.
+
+---
+
+### 4. Notifications
+
+- **URL**: `/notifications/`
+- **Method**: `GET` (List own notifications)
+
+- **URL**: `/notifications/{id}/mark_read/`
+- **Method**: `POST`
+
+---
+
+### 5. Support Tickets
+
+- **URL**: `/support/`
+- **Method**: `GET` (List own tickets)
+- **Method**: `POST` (Create ticket)
+
+**Create Ticket Payload:**
+
+```json
+{
+  "subject": "Issue with pickup",
+  "message": "The provider was not available."
 }
 ```
 
 ---
 
-### 8. Payments & Subscriptions
+### 6. Payments & Subscriptions
 
 Manage plans and payments.
 
@@ -201,18 +150,6 @@ Manage plans and payments.
 - **URL**: `/payments/plans/`
 - **Method**: `GET` (Public)
 - **Method**: `POST` (Admin Only)
-
-**Create Plan Payload:**
-
-```json
-{
-  "name": "Premium Plan",
-  "description": "Unlimited access",
-  "price": "9.99",
-  "duration_days": 30,
-  "features": {"priority": true, "analytics": true}
-}
-```
 
 #### Initiate Payment
 - **URL**: `/payments/payments/initiate/`
@@ -226,37 +163,6 @@ Manage plans and payments.
 }
 ```
 
-**Response:**
-
-```json
-{
-  "transaction_id": 123,
-  "payment_url": "http://localhost:8000/api/payments/mock_gateway/uuid-ref/",
-  "message": "Payment initiated..."
-}
-```
-
-#### Complete Payment (Mock Webhook)
-- **URL**: `/payments/payments/webhook/`
-- **Method**: `POST` (Public - simulate gateway callback)
-
-**Payload:**
-
-```json
-{
-  "provider_ref": "uuid-ref-from-initiate-response",
-  "status": "SUCCESS"
-}
-```
-
 #### Transaction History
 - **URL**: `/payments/payments/history/`
 - **Method**: `GET` (Authenticated)
-
-## Notes for Frontend Developers
-
-1.  **Roles**: Ensure the registration form allows users to select their role (Seeker or Provider). Admin role should probably not be exposed in the public registration form unless intended.
-2.  **Token Management**: Store the `access` token securely (e.g., in memory or HttpOnly cookie) and the `refresh` token.
-3.  **Token Expiry**: When the `access` token expires (401 Unauthorized), use the `refresh` token endpoint to get a new `access` token.
-4.  **Error Handling**: API will return 400 Bad Request for validation errors (e.g., username already exists). Display these errors to the user.
-5.  **Payments**: For the mock payment flow, redirect the user to the `payment_url` returned by the initiate endpoint. In a real app, this would be the Stripe checkout page.
